@@ -23,26 +23,19 @@ package org.jboss.weld.examples.login.ftest;
 
 import java.net.URL;
 
-import org.jboss.arquillian.ajocado.framework.AjaxSelenium;
-import org.jboss.arquillian.ajocado.locator.IdLocator;
-import org.jboss.arquillian.ajocado.locator.XPathLocator;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static org.jboss.arquillian.ajocado.locator.LocatorFactory.id;
-import static org.jboss.arquillian.ajocado.locator.LocatorFactory.xp;
-import static org.jboss.arquillian.ajocado.Ajocado.elementPresent;
-import static org.jboss.arquillian.ajocado.Ajocado.waitForHttp;
-import static org.jboss.arquillian.ajocado.Ajocado.waitModel;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import org.openqa.selenium.By;
+import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.WebDriver;
 
 /**
  * Tests login examples in Weld
@@ -55,17 +48,18 @@ import static org.junit.Assert.assertTrue;
 @RunAsClient
 public class CommonLoginTest {
     protected String MAIN_PAGE = "/home.jsf";
-    protected XPathLocator LOGGED_IN = xp("//li[contains(text(),'Welcome')]");
-    protected XPathLocator LOGGED_OUT = xp("//li[contains(text(),'Goodbye')]");
 
-    protected IdLocator USERNAME_FIELD = id("loginForm:username");
-    protected IdLocator PASSWORD_FIELD = id("loginForm:password");
+    private static final By LOGGED_IN = By.xpath("//li[contains(text(),'Welcome')]");
+    private static final By LOGGED_OUT = By.xpath("//li[contains(text(),'Goodbye')]");
+    
+    private static final By USERNAME_FIELD = By.id("loginForm:username");
+    private static final By PASSWORD_FIELD = By.id("loginForm:password");
 
-    protected IdLocator LOGIN_BUTTON = id("loginForm:login");
-    protected IdLocator LOGOUT_BUTTON = id("loginForm:logout");
+    private static final By LOGIN_BUTTON = By.id("loginForm:login");
+    private static final By LOGOUT_BUTTON = By.id("loginForm:logout");
 
     @Drone
-    AjaxSelenium selenium;
+    WebDriver driver;
     
     @ArquillianResource
     private URL contextPath;
@@ -77,30 +71,57 @@ public class CommonLoginTest {
     
     @Before
     public void openStartUrl() {
-        selenium.deleteAllVisibleCookies();
-        selenium.open(contextPath);
+        driver.manage().deleteAllCookies();
+        driver.navigate().to(contextPath);
     }
 
     @Test
     public void loginTest() {
-        waitModel.until(elementPresent.locator(USERNAME_FIELD));
-        assertFalse("User should not be logged in!", selenium.isElementPresent(LOGGED_IN));
-        selenium.type(USERNAME_FIELD, "demo");
-        selenium.type(PASSWORD_FIELD, "demo");
-        waitForHttp(selenium).click(LOGIN_BUTTON);
-        assertTrue("User should be logged in!", selenium.isElementPresent(LOGGED_IN));
+        checkElementPresent(driver, USERNAME_FIELD, "username field should be present");
+        checkElementNotPresent(driver, LOGOUT_BUTTON, "User should not be logged in!");
+        
+        driver.findElement(USERNAME_FIELD).clear();
+        driver.findElement(USERNAME_FIELD).sendKeys("demo");
+        
+        driver.findElement(PASSWORD_FIELD).clear();
+        driver.findElement(PASSWORD_FIELD).sendKeys("demo");
+        
+        driver.findElement(LOGIN_BUTTON).click();
+        
+        checkElementPresent(driver, LOGGED_IN, "User should be logged in!");
     }
 
     @Test
     public void logoutTest() {
-        waitModel.until(elementPresent.locator(USERNAME_FIELD));
-        assertFalse("User should not be logged in!", selenium.isElementPresent(LOGOUT_BUTTON));
-        selenium.type(USERNAME_FIELD, "demo");
-        selenium.type(PASSWORD_FIELD, "demo");
-        waitForHttp(selenium).click(LOGIN_BUTTON);
-        assertTrue("User should be logged in!", selenium.isElementPresent(LOGGED_IN));
-        waitForHttp(selenium).click(LOGOUT_BUTTON);
-        assertTrue("User should not be logged in!", selenium.isElementPresent(LOGGED_OUT));
+        checkElementPresent(driver, USERNAME_FIELD, "username field should be present");
+        checkElementNotPresent(driver, LOGOUT_BUTTON, "User should not be logged in!");
+        
+        driver.findElement(USERNAME_FIELD).clear();
+        driver.findElement(USERNAME_FIELD).sendKeys("demo");
+        
+        driver.findElement(PASSWORD_FIELD).clear();
+        driver.findElement(PASSWORD_FIELD).sendKeys("demo");
+        
+        driver.findElement(LOGIN_BUTTON).click();
+        
+        checkElementPresent(driver, LOGGED_IN, "User should be logged in!");
+        driver.findElement(LOGOUT_BUTTON).click();
+        
+        checkElementPresent(driver, LOGGED_OUT, "User should be logged in!");
     }
 
+    protected void checkElementPresent(WebDriver driver, By by, String errorMsg) {
+       try {
+           Assert.assertTrue(errorMsg, driver.findElement(by) != null);
+       } catch (NoSuchElementException e) {
+           Assert.fail(errorMsg);
+       }
+    }
+    
+    protected void checkElementNotPresent(WebDriver driver, By by, String errorMsg) {
+       try {
+           Assert.assertTrue(errorMsg, driver.findElement(by) == null);
+       } catch (NoSuchElementException e) {
+       }
+    }
 }
