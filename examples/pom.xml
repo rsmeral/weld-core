@@ -207,6 +207,23 @@
                 <artifactId>coyote</artifactId>
                 <version>${tomcat.version}</version>
             </dependency>
+            
+            <dependency>
+                <groupId>org.jboss.arquillian</groupId>
+                <artifactId>arquillian-bom</artifactId>
+                <version>1.0.2.Final</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            
+            <dependency>
+                <groupId>org.jboss.arquillian.extension</groupId>
+                <artifactId>arquillian-drone-bom</artifactId>
+                <version>1.0.0.Final</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>	
+
 
         </dependencies>
     </dependencyManagement>
