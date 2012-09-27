@@ -22,19 +22,21 @@
 package org.jboss.weld.examples.login.ftest;
 
 import java.net.URL;
-
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.drone.api.annotation.Drone;
+import static org.jboss.arquillian.graphene.Graphene.element;
+import static org.jboss.arquillian.graphene.Graphene.waitModel;
+import static org.jboss.arquillian.graphene.Graphene.guardHttp;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.Assert;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.openqa.selenium.By;
-import org.openqa.selenium.NoSuchElementException;
 import org.openqa.selenium.WebDriver;
 
 /**
@@ -47,28 +49,26 @@ import org.openqa.selenium.WebDriver;
 @RunWith(Arquillian.class)
 @RunAsClient
 public class CommonLoginTest {
-    protected String MAIN_PAGE = "/home.jsf";
 
+    protected String MAIN_PAGE = "/home.jsf";
     private static final By LOGGED_IN = By.xpath("//li[contains(text(),'Welcome')]");
     private static final By LOGGED_OUT = By.xpath("//li[contains(text(),'Goodbye')]");
-    
     private static final By USERNAME_FIELD = By.id("loginForm:username");
     private static final By PASSWORD_FIELD = By.id("loginForm:password");
-
     private static final By LOGIN_BUTTON = By.id("loginForm:login");
     private static final By LOGOUT_BUTTON = By.id("loginForm:logout");
-
+    
     @Drone
     WebDriver driver;
     
     @ArquillianResource
     private URL contextPath;
-    
+
     @Deployment(testable = false)
     public static WebArchive createTestDeployment1() {
         return Deployments.createDeployment();
     }
-    
+
     @Before
     public void openStartUrl() {
         driver.manage().deleteAllCookies();
@@ -77,51 +77,34 @@ public class CommonLoginTest {
 
     @Test
     public void loginTest() {
-        checkElementPresent(driver, USERNAME_FIELD, "username field should be present");
-        checkElementNotPresent(driver, LOGOUT_BUTTON, "User should not be logged in!");
-        
+        waitModel(driver).until(element(USERNAME_FIELD).isPresent());
+        assertFalse("User should not be logged in!", element(LOGOUT_BUTTON).isPresent().apply(driver));
+
         driver.findElement(USERNAME_FIELD).clear();
         driver.findElement(USERNAME_FIELD).sendKeys("demo");
-        
+
         driver.findElement(PASSWORD_FIELD).clear();
         driver.findElement(PASSWORD_FIELD).sendKeys("demo");
-        
-        driver.findElement(LOGIN_BUTTON).click();
-        
-        checkElementPresent(driver, LOGGED_IN, "User should be logged in!");
+
+        guardHttp(driver.findElement(LOGIN_BUTTON)).click();
+        assertTrue("User should be logged in!", element(LOGGED_IN).isPresent().apply(driver));
     }
 
     @Test
     public void logoutTest() {
-        checkElementPresent(driver, USERNAME_FIELD, "username field should be present");
-        checkElementNotPresent(driver, LOGOUT_BUTTON, "User should not be logged in!");
-        
+        waitModel(driver).until(element(USERNAME_FIELD).isPresent());
+        assertFalse("User should not be logged in!", element(LOGOUT_BUTTON).isPresent().apply(driver));
+
         driver.findElement(USERNAME_FIELD).clear();
         driver.findElement(USERNAME_FIELD).sendKeys("demo");
-        
+
         driver.findElement(PASSWORD_FIELD).clear();
         driver.findElement(PASSWORD_FIELD).sendKeys("demo");
-        
-        driver.findElement(LOGIN_BUTTON).click();
-        
-        checkElementPresent(driver, LOGGED_IN, "User should be logged in!");
-        driver.findElement(LOGOUT_BUTTON).click();
-        
-        checkElementPresent(driver, LOGGED_OUT, "User should be logged in!");
-    }
 
-    protected void checkElementPresent(WebDriver driver, By by, String errorMsg) {
-       try {
-           Assert.assertTrue(errorMsg, driver.findElement(by) != null);
-       } catch (NoSuchElementException e) {
-           Assert.fail(errorMsg);
-       }
-    }
-    
-    protected void checkElementNotPresent(WebDriver driver, By by, String errorMsg) {
-       try {
-           Assert.assertTrue(errorMsg, driver.findElement(by) == null);
-       } catch (NoSuchElementException e) {
-       }
+        guardHttp(driver.findElement(LOGIN_BUTTON)).click();
+        assertTrue("User should be logged in!", element(LOGGED_IN).isPresent().apply(driver));
+
+        guardHttp(driver.findElement(LOGOUT_BUTTON)).click();
+        assertTrue("User should not be logged in!", element(LOGGED_OUT).isPresent().apply(driver));
     }
 }
