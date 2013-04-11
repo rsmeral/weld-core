@@ -317,6 +317,30 @@
                             </systemProperties>
                         </configuration>
                     </plugin>
+                     
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>copy-ext-lib</id>
+                                <goals>
+                                    <goal>copy</goal>
+                                </goals>
+                                <configuration>
+                                    <artifactItems>
+                                        <artifactItem>
+                                            <groupId>org.jboss.cdi.tck</groupId>
+                                            <artifactId>cdi-tck-ext-lib</artifactId>
+                                            <version>${cdi.tck-1-1.version}</version>
+                                            <type>jar</type>
+                                        </artifactItem>
+                                    </artifactItems>
+                                    <outputDirectory>${env.JBOSS_HOME}/standalone/lib/ext</outputDirectory>
+                                </configuration>
+                            </execution>                        
+                        </executions>
+                    </plugin>
                 </plugins>
             </build>
         </profile>
