@@ -1,0 +1,132 @@
+<project name="weld-as-updater" default="update">
+    <property name="library.dir" value="${jboss.home}/standalone/lib/ext" />
+    
+    <!-- Support for JBoss 7.2+ layering mechanism, allows to update Weld even on a patched JBoss AS/EAP or WF instance  -->
+    <available file="${jboss.home}/modules/system" property="layered" value="true" />
+    <available file="${jboss.home}/modules/layers.conf" property="layers.conf.exists" value="true" />
+    <property name="layer.name" value="weld-update-${weld.update.version}" />
+    <property name="layers.conf.file" value="${jboss.home}/modules/layers.conf" />
+
+    <target name="make-layers-conf" unless="layers.conf.exists">
+        <echo message="layers=base" file="${layers.conf.file}" />
+    </target>
+    
+    <target name="layered-conf" if="layered" depends="make-layers-conf">
+        <property name="base.module.dir" value="${jboss.home}/modules/system/layers/base/org/jboss/weld" />
+        <property name="module.dir" value="${jboss.home}/modules/system/layers/${layer.name}/org/jboss/weld" />
+        <!-- TODO: causes "Duplicate layer" exception if run multiple times -->
+        <replaceregexp file="${layers.conf.file}" match="layers=" replace="layers=${layer.name}," byline="true" />
+    </target>
+    
+    <target name="set-paths">
+        <!-- The older versions of JBoss AS used this location for modules -->
+        <property name="base.module.dir" value="${jboss.home}/modules/org/jboss/weld" />
+        <property name="module.dir" value="${base.module.dir}" />
+        
+        <!-- Presence of weld-core-jsf is checked in the base layer, but updated in target layer -->
+        <property name="src.jsf.injection.dir" value="${base.module.dir}/../as/jsf-injection/main" />
+        <property name="jsf.injection.dir" value="${module.dir}/../as/jsf-injection/main" />
+        
+        <!-- Check to see if this version of 
+        AS / WildFly uses a separate weld-core-jsf artifact or not -->
+        <pathconvert property="weld.jsf.path" pathsep=" " setonempty="false">
+            <path>
+                <fileset dir="${src.jsf.injection.dir}" includes="weld-core-jsf*.jar" />
+            </path>
+        </pathconvert>
+        <!-- weld-core-impl is the right core 
+        artifact if weld-core-jsf is used by the application server -->
+        <condition property="weld.core.file" value="weld-core-impl.jar">
+            <and>
+                <isset property="weld.jsf.path" />
+            </and>
+        </condition>
+        <condition property="weld.jsf.file" value="weld-core-jsf.jar">
+            <and>
+                <isset property="weld.jsf.path" />
+            </and>
+        </condition>
+        <!-- otherwise, use the old artifact 
+        (weld-core) -->
+        <property name="weld.core.file" value="weld-core.jar" />
+    </target>
+    
+    <!-- TODO: how to properly base the new layer? Files in base might be stale.
+         To get proper ones it's necessary to know all layers and overlays -->
+    <target name="copy-from-base" if="layered">
+        <copy file="${base.module.dir}/core/main/module.xml" tofile="${module.dir}/core/main/module.xml" overwrite="true" />
+        <copy file="${base.module.dir}/spi/main/module.xml" tofile="${module.dir}/spi/main/module.xml" overwrite="true" />
+        <copy file="${base.module.dir}/api/main/module.xml" tofile="${module.dir}/api/main/module.xml" overwrite="true" />
+    
+        <copy todir="${jsf.injection.dir}"  overwrite="true">
+            <fileset dir="${src.jsf.injection.dir}">
+                <include name="*.jar" />
+                <include name="module.xml" />
+                <exclude name="${weld.jsf.file}" />
+            </fileset>
+        </copy>
+    
+    </target>
+    
+    <target name="update" depends="layered-conf,set-paths,copy-from-base">
+    
+        <delete failonerror="false">
+            <fileset dir="${module.dir}/core/main" includes="*.jar" />
+            <fileset dir="${module.dir}/spi/main" includes="*.jar" />
+            <fileset dir="${module.dir}/api/main" includes="*.jar" />
+            <fileset dir="${jsf.injection.dir}" includes="weld-core-jsf*.jar" />
+            <fileset dir="${module.dir}/core/main" includes="*.index" />
+            <fileset dir="${module.dir}/spi/main" includes="*.index" />
+            <fileset dir="${module.dir}/api/main" includes="*.index" />
+            <fileset dir="${jsf.injection.dir}" includes="weld-core-jsf*.index" />
+        </delete>
+    
+        <copy todir="${module.dir}/core/main" overwrite="true">
+            <fileset dir="target/dependency/lib">
+                <include name="${weld.core.file}" />
+            </fileset>
+        </copy>
+    
+        <replaceregexp file="${module.dir}/core/main/module.xml" match="path=&quot;.*?&quot;" replace="path=&quot;${weld.core.file}&quot;" byline="true" />
+    
+        <copy todir="${module.dir}/spi/main" overwrite="true">
+            <fileset dir="target/dependency/lib">
+                <include name="weld-spi.jar" />
+            </fileset>
+        </copy>
+    
+        <replaceregexp file="${module.dir}/spi/main/module.xml" match="path=&quot;.*?&quot;" replace="path=&quot;weld-spi.jar&quot;" byline="true" />
+    
+        <copy todir="${module.dir}/api/main" overwrite="true">
+            <fileset dir="target/dependency/lib">
+                <include name="weld-api.jar" />
+            </fileset>
+        </copy>
+    
+        <replaceregexp file="${module.dir}/api/main/module.xml" match="path=&quot;.*?&quot;" replace="path=&quot;weld-api.jar&quot;" byline="true" />
+    
+        <!-- Update the weld-core-jsf artifact 
+        (this one is only used post WF 8.0.0.Alpha1) -->
+        <copy todir="${jsf.injection.dir}" overwrite="true">
+            <fileset dir="target/dependency/lib">
+                <include name="${weld.jsf.file}" />
+            </fileset>
+        </copy>
+    
+        <replaceregexp file="${jsf.injection.dir}/module.xml" match="path=&quot;weld-core-jsf.*?&quot;" replace="path=&quot;weld-core-jsf.jar&quot;" byline="true" />
+    
+        <!-- Copy TCK library needed for TCK 
+        runs -->
+        <condition property="cdi.tck.lib" value="cdi-tck-ext-lib.jar">
+            <and>
+                <isset property="tck" />
+            </and>
+        </condition>
+    
+        <copy todir="${library.dir}" overwrite="true">
+            <fileset dir="target/dependency/lib">
+                <include name="${cdi.tck.lib}" />
+            </fileset>
+        </copy>
+    </target>
+</project>
